@@ -13,3 +13,16 @@
 *.user
 *.userprefs
 *.GhostDoc.xml
+
+*.sln.docstates
+PublishProfiles/
+PublishOutput/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+[Bb]in/
+[Oo]bj/
+
+project.lock.json

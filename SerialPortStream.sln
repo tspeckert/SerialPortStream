@@ -10,7 +10,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SerialPortStreamTest", "tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DatastructuresTest", "test\DatastructuresTest\DatastructuresTest.csproj", "{0FC877B6-A140-4687-B67E-EF41BB2C8604}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "SerialPortStream_netcore", "code_netcore\SerialPortStream_netcore.xproj", "{E6AF511E-C51A-4763-A8FC-0B5EBEDA8D91}"
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "SerialPortStream_netcore", "SerialPortStream_netcore\SerialPortStream_netcore.xproj", "{E6AF511E-C51A-4763-A8FC-0B5EBEDA8D91}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "NetCoreSerialTest", "test_netcore\NetCoreSerialTest.xproj", "{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,6 +45,12 @@ Global
 		{E6AF511E-C51A-4763-A8FC-0B5EBEDA8D91}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E6AF511E-C51A-4763-A8FC-0B5EBEDA8D91}.Signed_Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E6AF511E-C51A-4763-A8FC-0B5EBEDA8D91}.Signed_Release|Any CPU.Build.0 = Release|Any CPU
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}.Signed_Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD}.Signed_Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,6 +58,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{A12A6274-BA1D-484C-B695-28B9A7EE6DAB} = {53715691-3598-4D90-A0F4-04A885012087}
 		{0FC877B6-A140-4687-B67E-EF41BB2C8604} = {53715691-3598-4D90-A0F4-04A885012087}
+		{E5126841-53F0-42A0-9D6A-D3F71A15BDBD} = {53715691-3598-4D90-A0F4-04A885012087}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		Policies = $0

@@ -1,4 +1,4 @@
-// Copyright © Jason Curl 2012-2016
+﻿// Copyright © Jason Curl 2012-2016
 // Sources at https://github.com/jcurl/SerialPortStream
 // Licensed under the Microsoft Public License (Ms-PL)
 
@@ -21,24 +21,16 @@ namespace RJCP.IO.Ports.Native
         {
             m_Dll = new SerialUnix();
             m_Handle = m_Dll.serial_init();
-            if (m_Handle.Equals(IntPtr.Zero)) {
+            if (m_Handle.Equals(IntPtr.Zero))
+            {
                 throw new PlatformNotSupportedException("Can't initialise platform library");
             }
         }
 
         private void ThrowException()
         {
-            Mono.Unix.Native.Errno errno = Mono.Unix.Native.NativeConvert.ToErrno(m_Dll.errno);
             string description = m_Dll.serial_error(m_Handle);
-
-            switch (errno) {
-            case Mono.Unix.Native.Errno.EINVAL:
-                throw new ArgumentException(description);
-            case Mono.Unix.Native.Errno.EACCES:
-                throw new UnauthorizedAccessException(description);
-            default:
-                throw new InvalidOperationException(description);
-            }
+            throw new InvalidOperationException(description);
         }
 
         /// <summary>
@@ -70,37 +62,6 @@ namespace RJCP.IO.Ports.Native
             {
                 if (m_Dll.serial_setdevicename(m_Handle, value) == -1) ThrowException();
             }
-        }
-
-        /// <summary>
-        /// Gets an array of serial port names for the current computer.
-        /// </summary>
-        /// <returns>An array of serial port names for the current computer.</returns>
-        public string[] GetPortNames()
-        {
-            return System.IO.Ports.SerialPort.GetPortNames();
-        }
-
-        /// <summary>
-        /// Gets an array of serial port names and descriptions for the current computer.
-        /// </summary>
-        /// <remarks>
-        /// This method uses the Windows Management Interface to obtain its information. Therefore,
-        /// the list may be different to the list obtained using the GetPortNames() method which
-        /// uses other techniques.
-        /// <para>On Windows 7, this method shows to return normal COM ports, but not those
-        /// associated with a modem driver.</para>
-        /// </remarks>
-        /// <returns>An array of serial ports for the current computer.</returns>
-        public PortDescription[] GetPortDescriptions()
-        {
-            string[] ports = GetPortNames();
-            PortDescription[] portdescs = new PortDescription[ports.Length];
-
-            for (int i = 0; i < ports.Length; i++) {
-                portdescs[i] = new PortDescription(ports[i], "");
-            }
-            return portdescs;
         }
 
         /// <summary>
@@ -595,24 +556,30 @@ namespace RJCP.IO.Ports.Native
             m_Name = name;
             m_StopRunning.Reset();
 
-            try {
+            try
+            {
                 m_IsRunning = true;
                 m_MonitorThread = new Thread(new ThreadStart(ReadWriteThread));
                 m_MonitorThread.Name = "UnixNativeSerial::Monitor_" + m_Name;
                 m_MonitorThread.IsBackground = true;
                 m_MonitorThread.Start();
-            } catch {
+            }
+            catch
+            {
                 m_IsRunning = false;
                 throw;
             }
 
-            try {
+            try
+            {
                 m_MonitorPins = true;
                 m_PinThread = new Thread(new ThreadStart(PinChangeThread));
                 m_PinThread.Name = "UnixNativeSerial::Pin_" + m_Name;
                 m_PinThread.IsBackground = true;
                 m_PinThread.Start();
-            } catch {
+            }
+            catch
+            {
                 m_MonitorPins = false;
                 throw;
             }
@@ -624,13 +591,15 @@ namespace RJCP.IO.Ports.Native
             m_StopRunning.Set();
             InterruptReadWriteLoop();
 
-            if (m_MonitorPins && m_PinThread != null) {
+            if (m_MonitorPins && m_PinThread != null)
+            {
                 int killcounter = 0;
 
                 SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0, "{0}: PinChangeThread: Stopping Thread", m_Name);
                 m_Dll.serial_abortwaitformodemevent(m_Handle);
                 SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0, "{0}: PinChangeThread: Waiting for Thread", m_Name);
-                while (killcounter < 3 && !m_PinThread.Join(100)) {
+                while (killcounter < 3 && !m_PinThread.Join(100))
+                {
                     SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0, "{0}: PinChangeThread: Waiting for Thread, counter={1}", m_Name, killcounter);
                     killcounter++;
                 }
@@ -639,7 +608,8 @@ namespace RJCP.IO.Ports.Native
                 m_MonitorPins = false;
             }
 
-            if (m_MonitorThread != null) {
+            if (m_MonitorThread != null)
+            {
                 SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0, "{0}: ReadWriteThread: Waiting for Thread", m_Name);
                 m_MonitorThread.Join();
                 SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0, "{0}: ReadWriteThread: Thread Stopped", m_Name);
@@ -656,51 +626,63 @@ namespace RJCP.IO.Ports.Native
             };
             m_Buffer.WriteEvent += SerialBufferWriteEvent;
 
-            while (m_IsRunning) {
+            while (m_IsRunning)
+            {
                 SerialReadWriteEvent rwevent = SerialReadWriteEvent.NoEvent;
 
                 int handle = WaitHandle.WaitAny(handles, -1);
-                switch (handle) {
-                case 0: // StopRunning - Should abort
-                    m_IsRunning = false;
-                    continue;
+                switch (handle)
+                {
+                    case 0: // StopRunning - Should abort
+                        m_IsRunning = false;
+                        continue;
                 }
 
                 // These are not in the switch statement to ensure that we can actually
                 // read/write simultaneously.
-                if (m_Buffer.Serial.ReadBufferNotFull.WaitOne(0)) {
+                if (m_Buffer.Serial.ReadBufferNotFull.WaitOne(0))
+                {
                     rwevent |= SerialReadWriteEvent.ReadEvent;
                 }
-                if (m_Buffer.Serial.WriteBufferNotEmpty.WaitOne(0)) {
+                if (m_Buffer.Serial.WriteBufferNotEmpty.WaitOne(0))
+                {
                     rwevent |= SerialReadWriteEvent.WriteEvent;
                 }
 
                 SerialReadWriteEvent result = m_Dll.serial_waitforevent(m_Handle, rwevent, 500);
-                if (result == SerialReadWriteEvent.Error) {
+                if (result == SerialReadWriteEvent.Error)
+                {
                     SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Error, 0,
                         "{0}: ReadWriteThread: Error waiting for event; errno={1}; description={2}",
                         m_Name, m_Dll.errno, m_Dll.serial_error(m_Handle));
                     m_IsRunning = false;
                     continue;
-                } else {
+                }
+                else
+                {
                     SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0,
                         "{0}: ReadWriteThread: serial_waitforevent({1}, {2}) == {3}",
                         m_Name, m_Handle, rwevent, result);
                 }
 
-                if (result.HasFlag(SerialReadWriteEvent.ReadEvent)) {
+                if (result.HasFlag(SerialReadWriteEvent.ReadEvent))
+                {
                     int rresult;
-                    fixed (byte* b = m_Buffer.Serial.ReadBuffer.Array) {
+                    fixed (byte* b = m_Buffer.Serial.ReadBuffer.Array)
+                    {
                         byte* bo = b + m_Buffer.Serial.ReadBuffer.End;
                         int length = m_Buffer.Serial.ReadBuffer.WriteLength;
                         rresult = m_Dll.serial_read(m_Handle, (IntPtr)bo, length);
-                        if (rresult == -1) {
+                        if (rresult == -1)
+                        {
                             SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Error, 0,
                                 "{0}: ReadWriteThread: Error reading data; errno={1}; description={2}",
                                 m_Name, m_Dll.errno, m_Dll.serial_error(m_Handle));
                             m_IsRunning = false;
                             continue;
-                        } else {
+                        }
+                        else
+                        {
                             SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0,
                                 "{0}: ReadWriteThread: serial_read({1}, {2}, {3}) == {4}",
                                 m_Name, m_Handle, (IntPtr)bo, length, rresult);
@@ -710,19 +692,24 @@ namespace RJCP.IO.Ports.Native
                     if (rresult > 0) OnDataReceived(this, new SerialDataReceivedEventArgs(SerialData.Chars));
                 }
 
-                if (result.HasFlag(SerialReadWriteEvent.WriteEvent)) {
+                if (result.HasFlag(SerialReadWriteEvent.WriteEvent))
+                {
                     int wresult;
-                    fixed (byte * b = m_Buffer.Serial.WriteBuffer.Array) {
+                    fixed (byte* b = m_Buffer.Serial.WriteBuffer.Array)
+                    {
                         byte* bo = b + m_Buffer.Serial.WriteBuffer.Start;
                         int length = m_Buffer.Serial.WriteBuffer.ReadLength;
                         wresult = m_Dll.serial_write(m_Handle, (IntPtr)bo, length);
-                        if (wresult == -1) {
+                        if (wresult == -1)
+                        {
                             SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Error, 0,
                                 "{0}: ReadWriteThread: Error writing data; errno={1}; description={2}",
                                 m_Name, m_Dll.errno, m_Dll.serial_error(m_Handle));
                             m_IsRunning = false;
                             continue;
-                        } else {
+                        }
+                        else
+                        {
                             SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0,
                                 "{0}: ReadWriteThread: serial_write({1}, {2}, {3}) == {4}",
                                 m_Name, m_Handle, (IntPtr)bo, length, wresult);
@@ -749,13 +736,17 @@ namespace RJCP.IO.Ports.Native
 
         private void InterruptReadWriteLoop()
         {
-            if (m_IsRunning && !m_Handle.Equals(IntPtr.Zero)) {
+            if (m_IsRunning && !m_Handle.Equals(IntPtr.Zero))
+            {
                 int result = m_Dll.serial_abortwaitforevent(m_Handle);
-                if (result == -1) {
+                if (result == -1)
+                {
                     SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Error, 0,
                         "{0}: ReadWriteThread: Error aborting event; errno={1}; description={2}",
                         m_Name, m_Dll.errno, m_Dll.serial_error(m_Handle));
-                } else {
+                }
+                else
+                {
                     SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0,
                         "{0}: ReadWriteThread: serial_abortwaitforevent({1}) = {2}",
                         m_Name, m_Handle, result);
@@ -763,7 +754,7 @@ namespace RJCP.IO.Ports.Native
             }
         }
 
-        private const WaitForModemEvent c_ModemEvents = 
+        private const WaitForModemEvent c_ModemEvents =
             WaitForModemEvent.RingIndicator |
             WaitForModemEvent.ClearToSend |
             WaitForModemEvent.DataCarrierDetect |
@@ -771,8 +762,10 @@ namespace RJCP.IO.Ports.Native
 
         private void PinChangeThread()
         {
-            while (m_MonitorPins) {
-                if (m_StopRunning.WaitOne(0)) {
+            while (m_MonitorPins)
+            {
+                if (m_StopRunning.WaitOne(0))
+                {
                     m_MonitorPins = false;
                     continue;
                 }
@@ -780,7 +773,8 @@ namespace RJCP.IO.Ports.Native
                 SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Verbose, 0,
                     "{0}: PinChangeThread: Waiting", m_Name);
                 WaitForModemEvent mevent = m_Dll.serial_waitformodemevent(m_Handle, c_ModemEvents);
-                if (mevent == WaitForModemEvent.Error) {
+                if (mevent == WaitForModemEvent.Error)
+                {
                     SerialTrace.TraceSer.TraceEvent(System.Diagnostics.TraceEventType.Error, 0,
                         "{0}: PinChangeThread: Error aborting event; errno={1}; description={2}",
                         m_Name, m_Dll.errno, m_Dll.serial_error(m_Handle));
@@ -788,7 +782,8 @@ namespace RJCP.IO.Ports.Native
                     return;
                 }
 
-                if (mevent != WaitForModemEvent.None) {
+                if (mevent != WaitForModemEvent.None)
+                {
                     SerialPinChange pins = SerialPinChange.NoChange;
                     if (mevent.HasFlag(WaitForModemEvent.ClearToSend)) pins |= SerialPinChange.CtsChanged;
                     if (mevent.HasFlag(WaitForModemEvent.DataCarrierDetect)) pins |= SerialPinChange.CDChanged;
@@ -825,7 +820,8 @@ namespace RJCP.IO.Ports.Native
         protected virtual void OnDataReceived(object sender, SerialDataReceivedEventArgs args)
         {
             EventHandler<SerialDataReceivedEventArgs> handler = DataReceived;
-            if (handler != null) {
+            if (handler != null)
+            {
                 handler(sender, args);
             }
         }
@@ -838,7 +834,8 @@ namespace RJCP.IO.Ports.Native
         protected virtual void OnCommError(object sender, SerialErrorReceivedEventArgs args)
         {
             EventHandler<SerialErrorReceivedEventArgs> handler = ErrorReceived;
-            if (handler != null) {
+            if (handler != null)
+            {
                 handler(sender, args);
             }
         }
@@ -851,7 +848,8 @@ namespace RJCP.IO.Ports.Native
         protected virtual void OnPinChanged(object sender, SerialPinChangedEventArgs args)
         {
             EventHandler<SerialPinChangedEventArgs> handler = PinChanged;
-            if (handler != null) {
+            if (handler != null)
+            {
                 handler(sender, args);
             }
         }
@@ -874,12 +872,15 @@ namespace RJCP.IO.Ports.Native
         /// <c>false</c> to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!m_IsDisposed) {
-                if (disposing) {
+            if (!m_IsDisposed)
+            {
+                if (disposing)
+                {
                     if (IsOpen) Close();
                 }
 
-                if (!m_Handle.Equals(IntPtr.Zero)) {
+                if (!m_Handle.Equals(IntPtr.Zero))
+                {
                     m_Dll.serial_terminate(m_Handle);
                     m_Handle = IntPtr.Zero;
                     m_Dll = null;

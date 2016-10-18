@@ -2,13 +2,15 @@
 // Sources at https://github.com/jcurl/SerialPortStream
 // Licensed under the Microsoft Public License (Ms-PL)
 
+using System.Reflection;
+
 namespace RJCP.IO.Ports.Native
 {
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.IO;
-    using System.Management;
+    //using System.Management;
     using System.Runtime.InteropServices;
     using Microsoft.Win32;
     using Microsoft.Win32.SafeHandles;
@@ -39,7 +41,7 @@ namespace RJCP.IO.Ports.Native
             get
             {
                 if (m_Version != null) return m_Version;
-                System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                Assembly assembly = typeof(WinNativeSerial).GetTypeInfo().Assembly;
                 FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
                 m_Version = fvi.FileVersion;
                 return m_Version;
@@ -65,88 +67,6 @@ namespace RJCP.IO.Ports.Native
                 if (IsOpen) throw new InvalidOperationException("Port already open");
                 m_PortName = value;
             }
-        }
-
-        /// <summary>
-        /// Gets an array of serial port names for the current computer.
-        /// </summary>
-        /// <returns>An array of serial port names for the current computer.</returns>
-        public string[] GetPortNames()
-        {
-            using (RegistryKey local = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DEVICEMAP\SERIALCOMM", false)) {
-                if (local == null) return new string[0];
-                string[] k = local.GetValueNames();
-                if (k.Length > 0) {
-                    string[] ports = new string[local.ValueCount];
-                    for (int i = 0; i < k.Length; i++) {
-                        ports[i] = local.GetValue(k[i]) as string;
-                    }
-                    return ports;
-                }
-                return new string[0];
-            }
-        }
-
-        /// <summary>
-        /// Gets an array of serial port names and descriptions for the current computer.
-        /// </summary>
-        /// <remarks>
-        /// This method uses the Windows Management Interface to obtain its information. Therefore,
-        /// the list may be different to the list obtained using the GetPortNames() method which
-        /// uses other techniques.
-        /// <para>On Windows 7, this method shows to return normal COM ports, but not those
-        /// associated with a modem driver.</para>
-        /// </remarks>
-        /// <returns>An array of serial ports for the current computer.</returns>
-        public PortDescription[] GetPortDescriptions()
-        {
-            Dictionary<string, PortDescription> list = new Dictionary<string, PortDescription>();
-            using (RegistryKey local = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DEVICEMAP\SERIALCOMM", false)) {
-                if (local != null) {
-                    string[] k = local.GetValueNames();
-                    foreach (string p in k) {
-                        string n = local.GetValue(p) as string;
-                        list.Add(n, new PortDescription(n, ""));
-                    }
-                }
-            }
-
-            ManagementObjectCollection objects;
-            // Look for standard serial ports
-            using (ManagementObjectSearcher q = new ManagementObjectSearcher("select * from Win32_SerialPort")) {
-                objects = q.Get();
-                using (ManagementObjectCollection.ManagementObjectEnumerator enumerator = objects.GetEnumerator()) {
-                    while (enumerator.MoveNext()) {
-                        ManagementObject current = (ManagementObject)enumerator.Current;
-                        string k = current["DeviceID"].ToString();
-                        if (list.ContainsKey(k)) {
-                            list[k].Description = current["Name"].ToString();
-                        }
-                    }
-                }
-            }
-
-            // Look for any modems that are attached to COM ports that aren't listed above
-            using (ManagementObjectSearcher q = new ManagementObjectSearcher("select * from Win32_POTSModem")) {
-                objects = q.Get();
-                using (ManagementObjectCollection.ManagementObjectEnumerator enumerator = objects.GetEnumerator()) {
-                    while (enumerator.MoveNext()) {
-                        ManagementObject current = (ManagementObject)enumerator.Current;
-                        string k = current["AttachedTo"].ToString();
-                        if (list.ContainsKey(k)) {
-                            list[k].Description = current["Name"].ToString();
-                        }
-                    }
-                }
-            }
-
-            // Get the array and return it
-            int i = 0;
-            PortDescription[] ports = new PortDescription[list.Count];
-            foreach (PortDescription p in list.Values) {
-                ports[i++] = p;
-            }
-            return ports;
         }
 
         private int m_Baud = 115200;
@@ -749,7 +669,7 @@ namespace RJCP.IO.Ports.Native
                 }
                 break;
             default:
-                throw new ApplicationException("Unknown Parity");
+                throw new InvalidOperationException("Unknown Parity");
             }
 
             SetRtsPortSettings(false);
@@ -844,7 +764,7 @@ namespace RJCP.IO.Ports.Native
 
             NativeMethods.FileType t = UnsafeNativeMethods.GetFileType(m_ComPortHandle);
             if (t != NativeMethods.FileType.FILE_TYPE_CHAR && t != NativeMethods.FileType.FILE_TYPE_UNKNOWN) {
-                m_ComPortHandle.Close();
+                m_ComPortHandle.Dispose();
                 m_ComPortHandle = null;
                 throw new IOException("Wrong file type: " + PortName);
             }
@@ -875,7 +795,7 @@ namespace RJCP.IO.Ports.Native
                 m_CommOverlappedIo = null;
                 m_CommState = null;
                 m_CommModemStatus = null;
-                m_ComPortHandle.Close();
+                m_ComPortHandle.Dispose();
                 m_ComPortHandle = null;
             }
     }

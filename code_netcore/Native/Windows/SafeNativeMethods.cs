@@ -7,7 +7,7 @@ namespace RJCP.IO.Ports.Native.Windows
     using System;
     using System.Security;
 
-    [SuppressUnmanagedCodeSecurity]
+    //[SuppressUnmanagedCodeSecurity]
     internal static class SafeNativeMethods
     {
     }

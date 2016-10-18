@@ -7,6 +7,9 @@
 // this implementation.
 //#define DRIVERBUFFEREDBYTES
 
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+
 namespace RJCP.IO.Ports
 {
     using System;
@@ -14,7 +17,6 @@ namespace RJCP.IO.Ports
     using System.Text;
     using System.IO;
     using System.Threading;
-    using System.Runtime.Remoting.Messaging;
     using Datastructures;
     using Native;
 
@@ -119,12 +121,16 @@ namespace RJCP.IO.Ports
 
         private static INativeSerial CreateNativeSerial()
         {
-            int p = (int)Environment.OSVersion.Platform;
-            if (p == (int)PlatformID.Win32NT) {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
                 return new WinNativeSerial();
-            } else if (p == 4 || p == 8 || p == 128) {
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
                 return new UnixNativeSerial();
             }
+
             return null;
         }
 
@@ -298,39 +304,6 @@ namespace RJCP.IO.Ports
                 if (IsDisposed) return;
                 if (m_Buffer != null) m_Buffer.Stream.AbortWait();
                 m_NativeSerial.Close();
-            }
-        }
-        #endregion
-
-        #region Computer Configuration and Ports
-        /// <summary>
-        /// Gets an array of serial port names for the current computer.
-        /// </summary>
-        /// <returns>An array of serial port names for the current computer.</returns>
-        public static string[] GetPortNames()
-        {
-            using (INativeSerial serial = CreateNativeSerial()) {
-                if (serial == null) throw new NotSupportedException("SerialPortStream is not supported on this platform");
-                return serial.GetPortNames();
-            }
-        }
-
-        /// <summary>
-        /// Gets an array of serial port names and descriptions for the current computer.
-        /// </summary>
-        /// <remarks>
-        /// This method uses the Windows Management Interface to obtain its information. Therefore,
-        /// the list may be different to the list obtained using the GetPortNames() method which
-        /// uses other techniques.
-        /// <para>On Windows 7, this method shows to return normal COM ports, but not those
-        /// associated with a modem driver.</para>
-        /// </remarks>
-        /// <returns>An array of serial ports for the current computer.</returns>
-        public static PortDescription[] GetPortDescriptions()
-        {
-            using (INativeSerial serial = CreateNativeSerial()) {
-                if (serial == null) throw new NotSupportedException("SerialPortStream is not supported on this platform");
-                return serial.GetPortDescriptions();
             }
         }
         #endregion
@@ -705,7 +678,7 @@ namespace RJCP.IO.Ports
         /// <param name="state">A user-provided object that distinguishes this particular asynchronous read request from other requests.</param>
         /// <returns>An <see cref="IAsyncResult"/> object to be used with <see cref="EndRead"/>.</returns>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope")]
-        public override IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        public IAsyncResult BeginRead(byte[] buffer, int offset, int count, AsyncCallback callback, object state) //override readasync
         {
             ReadCheck(buffer, offset, count);
 
@@ -729,6 +702,43 @@ namespace RJCP.IO.Ports
         }
 
         /// <summary>
+        /// Begins an asynchronous read operation.
+        /// </summary>
+        /// <param name="buffer">The buffer to read the data into.</param>
+        /// <param name="offset">The byte offset in <paramref name="buffer"/> at which to begin writing data read from the stream.</param>
+        /// <param name="count">The maximum number of bytes to read.</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+
+            ReadCheck(buffer, offset, count);
+
+            Func<int> readFunc = () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (m_Buffer == null || count == 0 || m_Buffer.Stream.WaitForRead(0))
+                {
+                    // Data in the buffer, we can return immediately
+                    int result = 0;
+                    if (m_Buffer != null && count > 0)
+                    {
+                        result = InternalRead(buffer, offset, count);
+                    }
+
+                    return result;
+                }
+
+                // No data in buffer
+                return InternalBlockingRead(buffer, offset, count); // todo should modify to use token
+            };
+
+            return Task.Run(readFunc, cancellationToken);
+        }
+
+        /*
+        /// <summary>
         /// Waits for the pending asynchronous read to complete.
         /// </summary>
         /// <param name="asyncResult">The reference to the pending asynchronous request to finish.</param>
@@ -736,7 +746,7 @@ namespace RJCP.IO.Ports
         /// <exception cref="IOException">Device Error (e.g. device removed).</exception> 
         /// <returns>The number of bytes read from the stream, between zero (0) and the number of bytes you requested.
         /// Streams return zero (0) only at the end of the stream, otherwise, they should block until at least one byte is available.</returns>
-        public override int EndRead(IAsyncResult asyncResult)
+        public int EndRead(IAsyncResult asyncResult) 
         {
             if (asyncResult is LocalAsync<int>) {
                 LocalAsync<int> ar = (LocalAsync<int>)asyncResult;
@@ -745,11 +755,12 @@ namespace RJCP.IO.Ports
                 if (ar.Result == 0) ReadCheckDeviceError();
                 return ar.Result;
             } else {
-                AsyncResult ar = (AsyncResult)asyncResult;
+                IAsyncResult ar = (IAsyncResult)asyncResult;
                 ReadDelegate caller = (ReadDelegate)ar.AsyncDelegate;
                 return caller.EndInvoke(asyncResult);
             }
         }
+        */
 
         /// <summary>
         /// Synchronously reads one byte from the SerialPort input buffer.
@@ -1168,7 +1179,7 @@ namespace RJCP.IO.Ports
         /// <exception cref="System.ArgumentException">Offset and count exceed buffer boundaries.</exception>
         /// <exception cref="System.InvalidOperationException">Serial port not open.</exception>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope")]
-        public override IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        public IAsyncResult BeginWrite(byte[] buffer, int offset, int count, AsyncCallback callback, object state)
         {
             WriteCheck(buffer, offset, count);
 
@@ -1187,6 +1198,27 @@ namespace RJCP.IO.Ports
             }
         }
 
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            WriteCheck(buffer, offset, count);
+
+            var writeAction = new Action(() =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (count == 0) return;
+                if (m_Buffer.Stream.WaitForWrite(count, 0))
+                {
+                    InternalWrite(buffer, offset, count);
+                }
+                else
+                {
+                    InternalBlockingWrite(buffer, offset, count); //todo fix to use cancellation token
+                }
+            });
+
+            return Task.Run(writeAction, cancellationToken);
+        }
+
         /// <summary>
         /// Ends an asynchronous write operation.
         /// </summary>
@@ -1199,20 +1231,20 @@ namespace RJCP.IO.Ports
         /// <remarks>
         /// EndWrite must be called exactly once on every IAsyncResult from BeginWrite.
         /// </remarks>
-        public override void EndWrite(IAsyncResult asyncResult)
-        {
-            if (asyncResult is LocalAsync) {
-                LocalAsync ar = (LocalAsync)asyncResult;
-                if (!ar.IsCompleted) ar.AsyncWaitHandle.WaitOne(-1);
-                ar.Dispose();
-            } else {
-                AsyncResult ar = (AsyncResult)asyncResult;
-                WriteDelegate caller = (WriteDelegate)ar.AsyncDelegate;
+        //public override void EndWrite(IAsyncResult asyncResult)
+        //{
+        //    if (asyncResult is LocalAsync) {
+        //        LocalAsync ar = (LocalAsync)asyncResult;
+        //        if (!ar.IsCompleted) ar.AsyncWaitHandle.WaitOne(-1);
+        //        ar.Dispose();
+        //    } else {
+        //        AsyncResult ar = (AsyncResult)asyncResult;
+        //        WriteDelegate caller = (WriteDelegate)ar.AsyncDelegate;
 
-                // This will raise any exceptions from the method InternalBlockingWrite
-                caller.EndInvoke(asyncResult);
-            }
-        }
+        //        // This will raise any exceptions from the method InternalBlockingWrite
+        //        caller.EndInvoke(asyncResult);
+        //    }
+        //}
 
         /// <summary>
         /// Writes a specified number of characters to the serial port using data from a buffer.
@@ -1858,7 +1890,7 @@ namespace RJCP.IO.Ports
                 m_EventProcessing.Set();
             }
 
-            ThreadPool.QueueUserWorkItem(HandleEvent);
+            Task.Run(() => HandleEvent(null));
         }
 
         private void HandleEvent(object state)
@@ -2004,39 +2036,14 @@ namespace RJCP.IO.Ports
             default: s = "?"; break;
             }
 
-            string dsrStatus;
-            try {
-                dsrStatus = Handshake.HasFlag(Handshake.Dtr) ? "hs" : (IsOpen ? (DsrHolding ? "on" : "off") : "-");
-            } catch (IOException) {
-                dsrStatus = "err";
-            }
-
-            string ctsStatus;
-            try {
-                ctsStatus = Handshake.HasFlag(Handshake.Rts) ? "hs" : (IsOpen ? (CtsHolding ? "on" : "off") : "-");
-            } catch (IOException) {
-                ctsStatus = "err";
-            }
-
-            string dtrStatus;
-            try {
-                dtrStatus = Handshake.HasFlag(Handshake.Dtr) ? "hs" : (IsOpen ? (DtrEnable ? "on" : "off") : "-");
-            } catch (IOException) {
-                dtrStatus = "err";
-            }
-
-            string rtsStatus;
-            try {
-                rtsStatus = Handshake.HasFlag(Handshake.Rts) ? "hs" : (IsOpen ? (RtsEnable ? "on" : "off") : "-");
-            } catch (IOException) {
-                rtsStatus = "err";
-            }
-
             return string.Format("{0}:{1},{2},{3},{4},to={5},xon={6},idsr={7},icts={8},odtr={9},orts={10}",
                 PortName, BaudRate, DataBits, p, s,
                 TxContinueOnXOff ? "on" : "off",
                 Handshake.HasFlag(Handshake.XOn) ? "on" : "off",
-                dsrStatus, ctsStatus, dtrStatus, rtsStatus);
+                Handshake.HasFlag(Handshake.Dtr) ? "hs" : (IsOpen ? (DsrHolding ? "on" : "off") : "-"),
+                Handshake.HasFlag(Handshake.Rts) ? "hs" : (IsOpen ? (CtsHolding ? "on" : "off") : "-"),
+                Handshake.HasFlag(Handshake.Dtr) ? "hs" : (IsOpen ? (DtrEnable ? "on" : "off") : "-"),
+                Handshake.HasFlag(Handshake.Rts) ? "hs" : (IsOpen ? (RtsEnable ? "on" : "off") : "-"));
         }
     }
 }

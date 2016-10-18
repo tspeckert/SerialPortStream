@@ -29,25 +29,6 @@ namespace RJCP.IO.Ports.Native
         string PortName { get; set; }
 
         /// <summary>
-        /// Gets an array of serial port names for the current computer.
-        /// </summary>
-        /// <returns>An array of serial port names for the current computer.</returns>
-        string[] GetPortNames();
-
-        /// <summary>
-        /// Gets an array of serial port names and descriptions for the current computer.
-        /// </summary>
-        /// <remarks>
-        /// This method uses the Windows Management Interface to obtain its information. Therefore,
-        /// the list may be different to the list obtained using the GetPortNames() method which
-        /// uses other techniques.
-        /// <para>On Windows 7, this method shows to return normal COM ports, but not those
-        /// associated with a modem driver.</para>
-        /// </remarks>
-        /// <returns>An array of serial ports for the current computer.</returns>
-        PortDescription[] GetPortDescriptions();
-
-        /// <summary>
         /// Gets or sets the baud rate.
         /// </summary>
         /// <value>
